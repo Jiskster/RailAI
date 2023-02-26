@@ -35,7 +35,7 @@ local function FL_LookForEnemy(p) -- Flames code modified
 		// Ignore anything EXCEPT Crawlas
 		if not ((mo.type == MT_BLUECRAWLA)
 		or (mo.type == MT_PLAYER) and p.rings > 2
-		or (mo.flags & MF_MONITOR)
+		or (mo.flags & MF_MONITOR and mo.flags & MF_SOLID) //Check if the monitor is solid to prevent bots from targeting destroyed monitors
 		or (mo.type == MT_RING and p.mo.eflags & ~MFE_UNDERWATER)
 		or (mo.flags & MF_SPRING) and p.panim ~= PA_SPRING
 		--Panels
@@ -80,8 +80,7 @@ local function FL_LookForEnemy(p) -- Flames code modified
 		end
 		if (lastmo and dist < maxdist)
 			continue
-		end
-		
+		end	
 
 		// Found a target
 		lastmo = mo
@@ -103,17 +102,49 @@ local function ButtonsThink(p,cmd)
 				cmd.sidemove = p.sm
 				cmd.buttons = $|BT_JUMP
 			end
-			
-			if leveltime % 15*TICRATE == 0
-				cmd.buttons = $|BT_ATTACK
-			elseif leveltime % 2*TICRATE == 0 and p.currentweapon == WEP_AUTO --spray and pray baby
-				cmd.buttons = $|BT_ATTACK
+			if p.mo and p.mo.valid and p.valid
+				//Check if the bot is Samus
+			    if p.mo.skin == "basesamus" or p.mo.skin == "samus"
+			        //Charge Beam/Super Missile logic
+				    if p.sam_chargebeam and p.ai_rail.samchargetime != 80
+				        if not p.ai_rail.samcharging
+					        p.ai_rail.samchargecooldown = $ - 1
+				    	end
+				        if p.ai_rail.samchargecooldown <= 0
+					        //Use Super Missiles when ammo is available, else Charge Beam
+					        if p.samsupermissiles > 0
+					            cmd.buttons = $|BT_ATTACK
+						    else
+						        cmd.buttons = $|BT_FIRENORMAL
+						    end
+					        p.ai_rail.samchargetime = $ + 1
+					        p.ai_rail.samcharging = true
+					    end
+				    elseif p.ai_rail.samchargetime >= 80
+					    p.ai_rail.samchargetime = 0
+					    p.ai_rail.samchargecooldown = P_RandomRange(TICRATE*2, TICRATE*5)
+					    p.ai_rail.samcharging = false
+				    end
+			        // If Samus, then randomly use missiles when ammo is available, else beam
+			        if leveltime % 5*TICRATE == 0 and not p.ai_rail.samcharging
+				        if p.sammissiles > 0 and P_RandomChance(FRACUNIT/5)
+				            cmd.buttons = $|BT_ATTACK
+					    else
+						    cmd.buttons = $|BT_FIRENORMAL
+						end
+					end
+			    else
+			        if leveltime % 15*TICRATE == 0
+				        cmd.buttons = $|BT_ATTACK
+			        elseif leveltime % 2*TICRATE == 0 and p.currentweapon == WEP_AUTO --spray and pray baby
+				        cmd.buttons = $|BT_ATTACK
+					end
+				end
 			end
 			
 			if p.blocked == true
 				cmd.sidemove = p.sm
 			end
-
 		elseif p.ai_rail.mode == "conserve" --bot get ring and suff
 			cmd.forwardmove = 50 
 		elseif p.ai_rail.mode == "onspring" --when bot get ring!
@@ -124,18 +155,61 @@ local function ButtonsThink(p,cmd)
 		end
 
 		if p.ai_rail.mode2 == "forcejump"
-			cmd.buttons = $|BT_JUMP
-			p.ai_rail.mode2 = nil
+		    if p.ai_rail.forcejumpcooldown <= 0
+			    if p.ai_rail.forcejumptime < 17
+				    cmd.buttons = $|BT_JUMP
+			        p.ai_rail.forcejumptime = $ + 1
+			    elseif p.ai_rail.forcejumptime >= 17
+				    p.ai_rail.forcejumptime = 0
+			        p.ai_rail.mode2 = nil
+				    p.ai_rail.forcejumpcooldown = 17
+				end
+			elseif p.ai_rail.forcejumpcooldown > 0
+			    p.ai_rail.forcejumpcooldown = $ - 1
+				p.ai_rail.mode2 = nil
+			end
 		elseif p.ai_rail.mode2 == "forcespin"
 			cmd.buttons = $|BT_SPIN
 			p.ai_rail.mode2 = nil
+		//Special mode specifically for Samus to make her shoot monitors open
+		elseif p.ai_rail.mode == "samattackmonitor"
+			 if leveltime % 5*TICRATE == 0
+				cmd.buttons = $|BT_FIRENORMAL
+				p.ai_rail.mode = nil
+				p.mo.target = nil
+			 end
 		end
 		if p.mo and p.mo.valid and p.valid and p.mo.target then
 			if abs(p.mo.momx) > 30*FRACUNIT or abs(p.mo.momy) > 30*FRACUNIT then
-				if p.mo.target.type == MT_RING and p.mo.target.type == MT_FLINGRING 
+				if p.mo.target.type == MT_RING and p.mo.target.type == MT_FLINGRING and not p.mo.skin == "basesamus" or not p.mo.skin == "samus"
 					p.ai_rail.mode2 = "forcespin"
 				end
 			end
+		end
+		if p.mo and p.mo.valid and p.valid
+		    //Samus-specific logic
+		    if p.mo.skin == "basesamus" or p.mo.skin == "samus"
+		        //Helps prevents bots from getting stuck in Morph Ball mode by attempting to unmorph after 5 seconds
+		        if p.sammorphed
+			        p.ai_rail.sammorphtime = $ + 1
+				    if p.ai_rail.sammorphtime > 175
+				        cmd.buttons = $|BT_SPIN
+				        p.ai_rail.sammorphtime = 0
+				    end
+			    end
+			    //Randomly switch beams every 10-30 seconds (could be improved to make it truly random)
+			    if p.ai_rail.samweaponswitchcooldown > 0
+			        p.ai_rail.samweaponswitchcooldown = $ - 1
+			        if p.ai_rail.samweaponswitchcooldown <= 0
+			            p.ai_rail.samweaponswitchcooldown = P_RandomRange(TICRATE*10, TICRATE*30)
+				     if P_RandomChance(FRACUNIT/2)
+				            cmd.buttons = $|BT_WEAPONNEXT
+				        else
+				            cmd.buttons = $|BT_WEAPONPREV
+					    end
+				    end
+			    end
+		    end
 		end
 	end
 end
@@ -223,6 +297,10 @@ local function AimThink(p,cmd)
 			cmd.angleturn = angle / 65536 -- jittery aim
 			cmd.aiming = aimangle / 65536
 		end-- jittery aim
+		//Force jump if target needs jumping to reach
+		if p.mo.target.z > p.mo.z + p.mo.height
+		    p.ai_rail.mode2 = "forcejump"
+		end
 	end
 end
 
@@ -237,8 +315,15 @@ addHook("BotTiccmd", function(p,cmd)
 		p.ai_rail.mode = nil
 		p.ai_rail.mode2 = nil
 		p.ai_rail.pausetime = 0
+		p.ai_rail.forcejumptime = 0
+		p.ai_rail.forcejumpcooldown = 0
 		local r = P_RandomRange(-50,50)
 		p.sm = r
+		p.ai_rail.sammorphtime = 0
+		p.ai_rail.samchargetime = 0
+		p.ai_rail.samcharging = false
+		p.ai_rail.samchargecooldown = P_RandomRange(TICRATE*2, TICRATE*5)
+		p.ai_rail.samweaponswitchcooldown = P_RandomRange(TICRATE*10, TICRATE*30)
 	else
 		AimThink(p,cmd)
 		ButtonsThink(p,cmd)
@@ -292,10 +377,14 @@ end)
 addHook("MobjCollide", function(t, tm)
 	if tm.player and tm.player.railbot == true
 		if t.flags & MF_MONITOR
-			if tm.player.charability2 == CA2_NONE then
-				tm.player.ai_rail.mode2 = "forcespin"
-			elseif tm.player.charability2 ~= CA2_NONE then
-				tm.player.ai_rail.mode2 = "forcejump"
+			if tm.player.mo.skin == "basesamus" or tm.player.mo.skin == "samus"
+                 tm.player.ai_rail.mode = "samattackmonitor"
+			else	
+			    if tm.player.charability2 == CA2_NONE then
+				    tm.player.ai_rail.mode2 = "forcespin"
+			    elseif tm.player.charability2 ~= CA2_NONE then
+				    tm.player.ai_rail.mode2 = "forcejump"
+				end
 			end
 		end
 	end

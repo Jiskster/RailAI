@@ -1,4 +1,5 @@
 Project Rail by blur#2067 (Blur on Message Board)
+Samus support added by SubsonicBeatz154#8432
 
 Addbot by CobaltBW 
 AimScript by Mars#9931 (Flame)
