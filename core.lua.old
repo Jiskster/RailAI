@@ -1,0 +1,364 @@
+// Lua Dummy Aiming Script
+// By Flame
+
+// COMPILATION OF LUAS THAT MAKE WEIRD SHIT SORRY IF I USED UR LUA IN THIS
+
+
+
+
+local minreflex = 15
+local maxreflex = 50
+local minforward = 15
+local aimdumbness = 0
+
+addHook("NetVars", function(n)
+	minreflex = n($)
+	maxreflex = n($)
+	minforward = n($)
+	aimdumbness = n($)
+end)
+addHook("PlayerThink", function(p)
+	//p.weapondelay = 0
+	/*
+	p.ringweapons = 63
+	for weapon = pw_automaticring, pw_railring do
+		p.powers[weapon] = 999
+	end
+	*/
+	if p.iz == true
+		if not p.mo.target return end
+		if p.currentweapon == 0  //grenade blacklist
+			p.currentweapon = P_RandomRange(1,6)
+		end
+		if p.currentweapon == 4 //grenade blacklist
+			p.currentweapon = P_RandomRange(1,6)
+		end
+		if p.mo.target.type == MT_PLAYER //and p.mode == "conserve" //or p.rings > 5 and mo.type == MT_PLAYER
+			p.mode = "attack"
+			return
+		elseif p.mo.target.type ~= MT_PLAYER or p.mo.target == nil//and p.mode == "attack" //or p.rings <= 4 and mo.type ~= MT_PLAYER
+			p.mode = "conserve"
+			return
+		elseif p.mo.target.flags & MF_SPRING 
+			p.mode = "onspring"
+			return
+		end
+	end
+
+end)
+/*
+Bot Modes:
+p.mode = "attack"
+p.mode = "conserve"
+p.mode = "idle"
+*/
+addHook("PlayerSpawn", function(p)
+	p.currentweapon = P_RandomRange(1,6) 
+	if p.currentweapon == WEP_GRENADE //grenade blacklist
+		p.currentweapon = WEP_SCATTER
+	end		
+	//p.rings = 5
+	if p.iz == true
+		local r = P_RandomChance(FRACUNIT/2)
+		if r == true
+			p.sm = 30
+		else
+			p.sm = -30
+		end
+		p.mode = "conserve"
+		local pm = p.mo
+		/*
+		s = P_RandomRange(0,#skins)
+		p.mo.skin = tostring(skins[s].name)
+		*/
+		/*
+		for i=1,25
+			local r = P_SpawnMobj(pm.x,pm.y,pm.z,MT_RAILPICKUP) 
+		end
+		*/
+	end
+end)
+
+local function FL_LookForEnemy(p)
+	local lastmo
+	local dist
+	local lastdist = 0
+	local maxdist = 150
+
+	for mo in mobjs.iterate()
+		local targdiff = (p.mo.z/FRACUNIT - mo.z/FRACUNIT) 
+		if leveltime % 1*TICRATE
+			continue
+		end
+		if mo == p.mo // 'Ignore us' check
+			continue
+		end
+		if (mo.health <= 0) // I'm Dead.
+			continue
+		end
+		if (mo.player and mo.player.spectator == true)
+			continue
+		end
+		if (targdiff > 250 or targdiff < -250)
+			continue
+		end
+		if gametyperules & GTR_TEAMS
+			if mo.player and p.ctfteam == mo.player.ctfteam
+				continue
+			end
+		end
+		// Ignore anything EXCEPT Crawlas
+		if not ((mo.type == MT_BLUECRAWLA)
+		or (mo.type == MT_PLAYER) and p.rings ~= 0
+		or (mo.flags & MF_MONITOR)
+		or (mo.type == MT_RING and p.mo.eflags & ~MFE_UNDERWATER and p.rings < 5)
+		or (mo.flags & MF_SPRING) //and p.mo.eflags & MFE_UNDERWATER)
+		or (mo.type == MT_BOUNCEPICKUP)
+		or (mo.type == MT_RAILPICKUP)
+		or (mo.type == MT_AUTOPICKUP)
+		or (mo.type == MT_EXPLODEPICKUP)
+		or (mo.type == MT_SCATTERPICKUP)
+		or (mo.type == MT_GRENADEPICKUP)
+		or (mo.type == MT_FLINGRING)
+		or (mo.flags & MF_ENEMY)
+		
+		/*
+			MT_BOUNCEPICKUP
+			MT_RAILPICKUP
+			MT_AUTOPICKUP
+			MT_EXPLODEPICKUP
+			MT_SCATTERPICKUP
+			MT_GRENADEPICKUP
+		*/
+		
+		//or not (mo.flags & MF_SPRING) // Springs are an exception.
+		)
+			continue
+		end
+		
+		// Can't get it if you can't see it!
+		if not P_CheckSight(p.mo,mo)
+			continue
+		end
+
+		dist = P_AproxDistance(P_AproxDistance(p.mo.x - mo.x, p.mo.y - mo.y), p.mo.z - mo.z)
+		if (lastmo and (dist > lastdist)) // Last one is closer to you?
+			continue
+		end
+		if (lastmo and dist < maxdist)
+			continue
+		end
+		
+
+		// Found a target
+		lastmo = mo
+		lastdist = dist
+	end
+	return lastmo
+end
+
+addHook("PlayerThink", function(p)
+	if p and p.valid and not p.spectator
+		and p.mo and p.mo.valid and p.iz == true
+		//print(p.mo.z/FRACUNIT)
+		if p == server // Server?
+			return // Don't process anything else
+		end
+		if not p.mo.target // No target?
+			p.mo.target = FL_LookForEnemy(p) // Search for one
+		elseif p.mo.target and not P_CheckSight(p.mo, p.mo.target) or p.mo.target.health == 0 // Lost sight of your target?
+			p.mo.target = nil // No more target for you.
+		elseif p.mo.target.player and p.ctfteam == p.mo.target.player.ctfteam and gametyperules & GTR_TEAMS
+			return
+		elseif p.mo.target.health == 0
+			p.mo.target = nil
+			return
+		elseif p.blocked == true
+			p.mo.target = FL_LookForEnemy(p)
+			return
+		elseif p.panim == PA_SPRING
+			p.mo.target = nil
+			return
+		elseif p.mo.target.player and p.rings == 0
+			p.mo.target = nil
+			return
+		end
+		if not p.mo.target // Still no target?
+			return // Don't process anything else
+		end
+
+		
+		/*
+
+		if p.mo.target.player.valid
+			p.botleader = p.mo.target.player.valid
+		end
+		*/
+		// From here, assume the player has a target
+		local dist, zdiff
+		local angle, aimangle
+		
+		// Calculate your target's distance
+		/*
+		dist = P_AproxDistance(P_AproxDistance(
+		p.mo.target.x - p.mo.x,
+		p.mo.target.y - p.mo.y),
+		p.mo.target.z - p.mo.z)
+		if dist > 200 and p.mo.target.type == MT_RING
+			p.mo.target = nil
+			return
+		end
+		*/
+		//local r = P_RandomRange(1,5)
+		
+		if aimdumbness ~= 0 and leveltime % aimdumbness*TICRATE //and p.target.player.valid == true
+			return
+		end
+		
+		dist = R_PointToDist2(p.mo.x, p.mo.y, p.mo.target.x, p.mo.target.y)
+
+		
+		zdiff = (p.mo.target.z - p.mo.z)
+		
+		// Point at your target
+		//angle = R_PointToAngle2(p.mo.target.x, p.mo.target.y, p.mo.x, p.mo.y) -- For inverse angle
+		angle = R_PointToAngle2(p.mo.x, p.mo.y, p.mo.target.x, p.mo.target.y)
+		p.mo.angle = angle
+		
+		// Aim at your target
+		aimangle = FixedAngle(InvAngle(FixedDiv(zdiff, dist))) -- Calculate your cotangent
+		//aimangle = R_PointToAngle2(0, 0, dist, zdiff)
+		p.aiming = aimangle
+	end
+end)
+
+addHook("PreThinkFrame", do
+    for p in players.iterate
+		if p.iz == true p.spectator = 0 end
+		if p.iz == true and p.mode == "attack"
+			p.cmd.forwardmove = 50 -- Force the player to *always* be 'holding' forward.
+			local r = P_RandomRange(minreflex,maxreflex)
+			if leveltime % r*TICRATE //and p.target.player.valid == true
+				p.cmd.forwardmove = 50 -- Force the player to *always* be 'holding' forward.
+				p.cmd.sidemove = p.sm -- Force the player to *always* be 'holding' forward.
+				p.cmd.buttons = $|BT_JUMP
+				p.cmd.buttons = $|BT_ATTACK-- Force the player to *always* be 'holding' forward.
+				//chatprint(leveltime/TICRATE)
+			end
+		elseif p.iz == true and p.mode == "conserve"
+			p.cmd.forwardmove = 50 -- Force the player to *always* be 'holding' forward.
+			local r = P_RandomRange(50,80)
+			if leveltime % r*TICRATE //and p.target.player.valid == true
+				p.cmd.forwardmove = 50 -- Force the player to *always* be 'holding' forward.
+				p.cmd.buttons = $|BT_JUMP
+				//p.cmd.buttons = $|BT_ATTACK-- Force the player to *always* be 'holding' forward.
+				//chatprint(leveltime/TICRATE)
+			end
+		elseif p.iz == true and p.mode == "onspring"
+			p.cmd.forwardmove = 0 -- Force the player to *always* be 'holding' forward.
+			p.cmd.buttons = $|BT_SPIN
+		end
+    end
+end)
+
+COM_AddCommand("randomskin", function(p, arg1)
+    if arg1 == nil 
+        CONS_Printf(p, "randomskin <value>: Give bots random skin on spawn")
+        //CONS_Printf(p, "Default: True")
+        return
+    end
+    if arg1 == 0 or 1 
+        randomskin = arg1
+        chatprint("randomskin has been changed to " + arg1)
+    elseif arg1 ~= 0 or 1 
+        chatprintf(p, "INVALID ARGUMENT: MUST BE 1 or 0!")
+        return
+    end
+end,COM_ADMIN)
+
+COM_AddCommand("minreflex", function(p, arg1)
+    if arg1 == nil 
+        CONS_Printf(p, "minreflex <value>: min speed")
+        //CONS_Printf(p, "Default: True")
+        return
+    end
+    if tonumber(arg1) <= 50  
+        minreflex = tonumber(arg1)
+        chatprint("minreflex has been changed to " + arg1)
+    else
+        chatprintf(p, "INVALID ARGUMENT: MUST BE UNDER 50")
+        return
+    end
+end,COM_ADMIN)
+
+COM_AddCommand("aimdumbness", function(p, arg1)
+    if arg1 == nil 
+        CONS_Printf(p, "aimdumbness <value>: time it takes to aim")
+        //CONS_Printf(p, "Default: True")
+        return
+    end
+    if tonumber(arg1) <= 100 
+        aimdumbness = tonumber(arg1)
+        chatprint("aimdumbness has been changed to " + arg1)
+    else
+        chatprintf(p, "INVALID ARGUMENT: MUST BE UNDER 100")
+        return
+    end
+end,COM_ADMIN)
+COM_AddCommand("maxreflex", function(p, arg1)
+    if arg1 == nil 
+        CONS_Printf(p, "maxreflex <value>: max speed")
+        //CONS_Printf(p, "Default: True")
+        return
+    end
+    if tonumber(arg1) <= 50 
+        maxreflex = tonumber(arg1)
+        chatprint("maxreflex has been changed to " + arg1)
+    else
+        chatprintf(p, "INVALID ARGUMENT: MUST BE UNDER 50")
+        return
+    end
+end,COM_ADMIN)
+
+COM_AddCommand("minforward", function(p, arg1)
+    if arg1 == nil 
+        CONS_Printf(p, "minforward <value>: minfoward when conserving")
+        //CONS_Printf(p, "Default: True")
+        return
+    end
+    if tonumber(arg1) <= 50 
+        minforward = tonumber(arg1)
+        chatprint("minforward has been changed to " + arg1)
+    else
+        chatprintf(p, "INVALID ARGUMENT: MUST BE UNDER 50")
+        return
+    end
+end,COM_ADMIN)
+/*
+	minreflex = n($)
+	maxreflex = n($)
+	minfoward = n($)
+	randomskin = n($)
+*/
+addHook("MobjDamage", function(target, inflictor) 
+	if inflictor.player and target.player != nil and target.player.iz == true
+		target.player.weapondelay = $ + 35
+		target.player.mode = "attack"
+		target.player.currentweapon = P_RandomRange(1,6)
+		local r = P_RandomChance(FRACUNIT/2)
+		if r == true
+			target.player.sm = 30
+		else
+			target.player.sm = -30
+		end
+		return
+	end
+end)
+
+/*
+addHook("MobjThinker", function(m)
+	if m.type:find("PICKUP")
+		P_RemoveMobj(m)
+	end
+end)
+*/
