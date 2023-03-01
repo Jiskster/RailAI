@@ -5,17 +5,17 @@ local t = {
 	addon = "RailAI", // aka chaoticbots
 	-- Info
 	version = 1,
-	subversion = 1,
+	subversion = 10, -- 1.1
 	develop = false,
 	
 }
 
-if type(AddBotVersionInfo) == "table"
-	print("AddBot already registered by previous addon: "..tostring(AddBotVersionInfo.addon))
+if type(RailAiBotVersionInfo) == "table"
+	print("RailAI already registered by previous addon: "..tostring(AddBotVersionInfo.addon))
 	return
 end
 
-rawset(_G,"AddBotVersionInfo", t)
+rawset(_G,"RailAiVersionInfo", t)
 
 
 
@@ -57,7 +57,7 @@ local AutoMax = CV_RegisterVar {
 
 local MaxBots = CV_RegisterVar{
 	name = "maxbots",
-	defaultvalue = 8,
+	defaultvalue = 32,
 	flags = CV_NETVAR,
 	PossibleValue = {
 		MIN = 0,
@@ -176,7 +176,7 @@ local CanAddBot = function(player, versus, ...)
 	end
 	if not automax and all >= maxplayers
 	or all == 32 -- Absolute limit
-		CONS_Printf(player, 'The server is already completely full!')
+		CONS_Printf(player, 'The server is already completely full! Or too many bots!')
 		return
 	end
 	return true
