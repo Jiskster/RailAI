@@ -4,24 +4,28 @@ rawset(_G,"FL_LookForEnemy", function(p) -- Flames Aim code modified
 	local dist
 	local zdiff
 	local lastdist = 0
-	local maxdist = 1028
-	local realmaxdist = 800
+	local maxdist = 1028*10
+	local realmaxdist = 8000
 	searchBlockmap("objects", function(refmo, mo)
-		if mo == p.mo -- 'Ignore us' check
+		if (mo == p.mo) then -- 'Ignore us' check
 			return
 		end
-		if (mo.health <= 0) -- I'm Dead.
+		if (mo.health <= 0) then -- I'm Dead.
 			return
 		end
-		if (mo.player and mo.player.spectator == true)
-			return
-		end
-		
-		if R_PointToDist2(p.mo.x, p.mo.y, mo.x, mo.y) > realmaxdist*FRACUNIT then
+		if (mo.player and mo.player.spectator == true) then
 			return
 		end
 		
-		if (mo.z > p.mo.ceilingz)
+		if R_PointToDist2(p.mo.x, p.mo.y, mo.x, mo.y) > (realmaxdist*FRACUNIT) then
+			return
+		end
+		
+		if (mo.z > p.mo.ceilingz) then
+			return
+		end
+		
+		if (mo.floorz - 100*FRACUNIT > p.mo.floorz) then
 			return
 		end
 		/*
@@ -29,7 +33,7 @@ rawset(_G,"FL_LookForEnemy", function(p) -- Flames Aim code modified
 			continue
 		end
 		*/
-		if gametyperules & GTR_TEAMS
+		if gametyperules & GTR_TEAMS then
 			if mo.player and p.ctfteam == mo.player.ctfteam
 				return
 			end
@@ -66,20 +70,20 @@ rawset(_G,"FL_LookForEnemy", function(p) -- Flames Aim code modified
 		*/
 		
 		--or not (mo.flags & MF_SPRING) -- Springs are an exception.
-		)
+		) then
 			return
 		end
 		
 		-- Can't get it if you can't see it!
-		if not P_CheckSight(p.mo,mo)
+		if not P_CheckSight(p.mo,mo) then
 			return
 		end
 
 		dist = P_AproxDistance(P_AproxDistance(p.mo.x - mo.x, p.mo.y - mo.y), p.mo.z - mo.z)
-		if (lastmo and (dist > lastdist)) -- Last one is closer to you?
+		if (lastmo and (dist > lastdist)) then -- Last one is closer to you?
 			return 
 		end
-		if (lastmo and dist < maxdist*FRACUNIT)
+		if (lastmo and dist < maxdist*FRACUNIT) then
 			return true
 		end	
 
