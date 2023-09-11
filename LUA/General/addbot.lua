@@ -10,12 +10,12 @@ local t = {
 	
 }
 
-if type(AddBotVersionInfo) == "table"
-	print("AddBot already registered by previous addon: "..tostring(AddBotVersionInfo.addon))
+if type(RailAIVersionInfo) == "table"
+	print("RailAI already registered by previous addon: "..tostring(AddBotVersionInfo.addon))
 	return
 end
 
-rawset(_G,"AddBotVersionInfo", t)
+rawset(_G,"RailAIVersionInfo", t)
 
 
 
