@@ -16,6 +16,7 @@ for _, filename in ipairs{
     "General/Init/ConsoleVars.lua",
 
     -- Main Code
+	"General/addbot.lua",
     "General/maincode.lua",
 } do
     dofile(filename)

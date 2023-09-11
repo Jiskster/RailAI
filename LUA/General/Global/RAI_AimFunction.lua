@@ -4,22 +4,25 @@ rawset(_G,"FL_LookForEnemy", function(p) -- Flames Aim code modified
 	local dist
 	local zdiff
 	local lastdist = 0
-	local maxdist = 150
-	
-	for mo in mobjs.iterate()
-		
+	local maxdist = 1028
+	local realmaxdist = 800
+	searchBlockmap("objects", function(refmo, mo)
 		if mo == p.mo -- 'Ignore us' check
-			continue
+			return
 		end
 		if (mo.health <= 0) -- I'm Dead.
-			continue
+			return
 		end
 		if (mo.player and mo.player.spectator == true)
-			continue
+			return
+		end
+		
+		if R_PointToDist2(p.mo.x, p.mo.y, mo.x, mo.y) > realmaxdist*FRACUNIT then
+			return
 		end
 		
 		if (mo.z > p.mo.ceilingz)
-			continue
+			return
 		end
 		/*
 		if (mo.z > p.mo.ceilingz)
@@ -28,11 +31,11 @@ rawset(_G,"FL_LookForEnemy", function(p) -- Flames Aim code modified
 		*/
 		if gametyperules & GTR_TEAMS
 			if mo.player and p.ctfteam == mo.player.ctfteam
-				continue
+				return
 			end
 		end
 		-- checks
-		if not ((mo.type == MT_BLUECRAWLA)
+		if not ( (mo.type == MT_BLUECRAWLA)
 		or (mo.type == MT_PLAYER) and p.rings > 2
 		or (mo.flags & MF_MONITOR and mo.flags & MF_SOLID) --Check if the monitor is solid to prevent bots from targeting destroyed monitors
 		or (mo.type == MT_RING and p.mo.eflags & ~MFE_UNDERWATER)
@@ -64,26 +67,28 @@ rawset(_G,"FL_LookForEnemy", function(p) -- Flames Aim code modified
 		
 		--or not (mo.flags & MF_SPRING) -- Springs are an exception.
 		)
-			continue
+			return
 		end
 		
 		-- Can't get it if you can't see it!
 		if not P_CheckSight(p.mo,mo)
-			continue
+			return
 		end
 
 		dist = P_AproxDistance(P_AproxDistance(p.mo.x - mo.x, p.mo.y - mo.y), p.mo.z - mo.z)
 		if (lastmo and (dist > lastdist)) -- Last one is closer to you?
-			continue
+			return 
 		end
-		if (lastmo and dist < maxdist)
-			continue
+		if (lastmo and dist < maxdist*FRACUNIT)
+			return true
 		end	
 
 		-- Found a target
 		lastmo = mo
 		lastdist = dist
-	end
+	end, p.mo, 
+	p.mo.x - maxdist*FRACUNIT, p.mo.x + maxdist*FRACUNIT, 
+	p.mo.y - maxdist*FRACUNIT, p.mo.y + maxdist*FRACUNIT)
 	return lastmo
 end)
 
