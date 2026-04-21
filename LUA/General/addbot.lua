@@ -17,9 +17,6 @@ end
 
 rawset(_G,"RailAIVersionInfo", t)
 
-
-
-
 local BotPermissions = CV_RegisterVar{
 	name = "botperms",
 	defaultvalue = 0,
@@ -74,11 +71,6 @@ local BotFollow = function(leader, bot)
 end
 
 local AddBot = function(player, versus, skin, color, name)
-	-- Skin
-	if not players[0].valid
-		CONS_Printf(player, "Unable to spawn bots without a player 0.")
-	end
-	
 	if not(skins[skin])
 		CONS_Printf(player, "Specified skin does not exist!")
 		return
